@@ -1,0 +1,231 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Smart Lock</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+		<script src="http://libs.baidu.com/jquery/2.1.4/jquery.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+		<style>
+			#Box{
+				width: 100%;
+				height: 50%;
+				display: flex;
+				-webkit-flex-direction:column;
+				flex-direction:column;
+			}
+			.head{
+				text-align: center;
+				text-align: center;
+				top: 100px;
+				font-family: "楷体";
+				font-size: 30px;
+				color: #CEAFFF;
+				text-shadow: 5px 5px 5px #FFCCFF;
+				cursor: pointer;
+			}
+			#host{
+				-webkit-appearance: none;
+				-moz-appearance: none;
+				appearance: none;
+				outline: 0;
+				border: 2px solid rgba(85, 0, 0, 102);
+				background-color: rgba(239, 239, 239, 51);
+				border-radius: 3px;
+				padding: 10px 15px;
+				display: block;
+				text-align: center;
+				font-size: 18px;
+				color: white;
+				-webkit-transition-duration: 0.25s;
+				transition-duration: 0.25s;
+				font-family: 'Times New Roman', Times, serif;
+			}
+			.button{
+				-webkit-appearance: none;
+				appearance: none;
+				outline: 0;
+				background-color: #53e3a6;
+				border: 0;
+				padding: 15px 15px;
+				color: white;
+				border-radius: 3px;
+				cursor: pointer;
+				font-size: 20px;
+				-webkit-transition-duration: 0.25s;
+				transition-duration: 0.25s;
+				box-shadow: 5px 5px 5px #aaffff;
+				font-family: "楷体", sans-serif;
+			}
+			.button:hover{
+				color: grey;
+				background-color: #aaaaff;
+				box-shadow: 5px 5px 5px #55ff7f;
+			}
+			#host:hover{
+				border: 2px solid rgba(193, 193, 193, 102);
+			}
+			.msgCon{
+				z-index: -1;
+			}
+		</style>
+	
+	</head>
+	
+	<body>
+		<div class="head">
+			<h2>Smart Lock</h2>
+		</div>
+		<br />
+		<div id="Box">
+			<input type="text" id="host" placeholder="Host Name"/>
+			<hr />
+			<input type="button" value="连接" class="button" onclick="btnConnect()" />
+			<hr />
+			<input type="button" value="断开" class="button" onclick="btnEnd()" />
+			<hr />
+			<input type="button" value="开门" class="button" onclick="btnOpen()" />
+			<hr />
+			<input type="button" value="清空" class="button clear" onclick="btnClear()" />
+			<hr />
+			<div class="msgCon" id="msgCon"></div>
+		</div>
+	</body>
+	
+	<script>
+		var hostname = 'api.easylink.io',
+			port = 1983,
+			clientId = 'client-' + Math.ceil(Math.random() * 1000),
+			timeout = 5,
+			keepAlive = 100,
+			cleanSession = false,
+			ssl = false,
+			client,
+			topic_send = '/ESP32/CMD',
+			topic_sub = '/ESP32/CALLBACK',
+			s = "";
+	    
+		function onFailure() {
+			console.log(e);
+			s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onFailure()}";
+			console.log(s);
+		}
+		//连接服务器并注册连接成功处理事件
+		function onConnect() {
+		    //console.log(">> 连接成功!");
+			innerHTMl(">> 连接成功!");
+		    s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onConnected()}";
+		    console.log(s);
+		    client.subscribe(topic_sub);
+		}
+		
+		function onConnectionLost(responseObject) {
+		    s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onConnectionLost()}";
+		    console.log(s);
+		    if (responseObject.errorCode !== 0) {
+		        console.log("onConnectionLost:" + responseObject.errorMessage);
+		        //console.log(">> 连接出错!");
+				innerHTMl(">> 连接出错!");
+		    }else{
+				//console.log(">> 结束连接!");
+				innerHTMl(">> 结束连接!");
+			}
+		}
+		
+		//消息接收处理
+		function onMessageArrived(message) {
+		    s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onMessageArrived()}";
+		    console.log(s);
+		    //console.log(">> 收到消息:" + message.payloadString);
+			innerHTMl(">> 收到消息:" + message.payloadString);
+		}
+		
+		function btnConnect(){
+			var host = document.getElementById("host").value;
+			var realhost = hostname;
+			if(host){
+				realhost = host;
+				innerHTMl(">>使用自定义BROKER: "+realhost)
+			}else{
+				innerHTMl(">>使用默认BROKER: "+realhost)
+			}
+			client = new Paho.MQTT.Client(realhost, port, clientId)
+			//建立客户端实例
+			var options = {
+				invocationContext: {
+					host: realhost,
+					port: port,
+					path: client.path,
+					clientId: clientId
+				},
+				timeout: timeout,
+				keepAliveInterval: keepAlive,
+				cleanSession: cleanSession,
+				useSSL: ssl,  
+				onSuccess: onConnect,
+				onFailure: onFailure
+			};
+			//注册连接断开处理事件  
+			client.onConnectionLost = onConnectionLost;
+			//注册消息接收处理事件
+			client.onMessageArrived = onMessageArrived;
+			client.connect(options);
+		}
+		
+		function btnEnd() {
+			if(client.isConnected){
+				client.disconnect();
+			}else{
+				//console.log(">> 当前未连接!");
+				innerHTMl(">> 当前未连接!");
+			}
+		}
+		
+		function btnOpen() {
+			var s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", content:" + (s) + ", from: web console}";
+			console.log(s);
+			message = new Paho.MQTT.Message("OpenDoor");
+			message.destinationName = topic_send;
+			client.send(message);
+		}
+
+		Date.prototype.Format = function (fmt) {
+			var o = {
+				"M+": this.getMonth() + 1, //月份 
+				"d+": this.getDate(), //日 
+				"h+": this.getHours(), //小时 
+				"m+": this.getMinutes(), //分 
+				"s+": this.getSeconds(), //秒 
+				"q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+				"S": this.getMilliseconds() //毫秒 
+			};
+			if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+			for (var k in o)
+				if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[
+					k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+			return fmt;
+		}
+		
+///////////////////////////////////////////////////////////////////////////	
+		
+		//删除当前数据
+		function btnClear(){
+			$(".msgBox").remove()
+		}
+		
+		//渲染html
+		function innerHTMl(msg) {
+			let str =
+				`<div class='msgBox'>
+					<div class='msgTxt'>
+						[${new Date().Format("yyyy-MM-dd hh:mm:ss")}] ${msg}
+					</div>
+				</div>`
+			$(".msgCon").append(str);
+		}
+	</script>
+</html>
+
+
+
+
+
