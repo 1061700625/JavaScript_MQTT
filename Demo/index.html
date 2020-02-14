@@ -8,7 +8,7 @@
 		<style>
 			#Box{
 				width: 100%;
-				height: 50%;
+				/* height: 50%; */
 				display: flex;
 				-webkit-flex-direction:column;
 				flex-direction:column;
@@ -17,13 +17,15 @@
 				text-align: center;
 				text-align: center;
 				top: 100px;
-				font-family: "楷体";
+				font-family: 'Times New Roman', Times, serif;
 				font-size: 30px;
 				color: #CEAFFF;
 				text-shadow: 5px 5px 5px #FFCCFF;
 				cursor: pointer;
 			}
-			#host{
+			.inputs{
+				/* display: block; */
+				width: 100%;
 				-webkit-appearance: none;
 				-moz-appearance: none;
 				appearance: none;
@@ -32,15 +34,27 @@
 				background-color: rgba(239, 239, 239, 51);
 				border-radius: 3px;
 				padding: 10px 15px;
-				display: block;
 				text-align: center;
 				font-size: 18px;
-				color: white;
+				color: rgba(153, 153, 0, 51);
 				-webkit-transition-duration: 0.25s;
 				transition-duration: 0.25s;
 				font-family: 'Times New Roman', Times, serif;
 			}
+			.line{
+				display: flex;
+				-webkit-flex-direction:row;
+				flex-direction:row;
+				margin-bottom: 5px;
+			}
+			.label{
+				text-align: center;
+				width: 100px;
+				color: rgba(109, 109, 81, 102);
+				font-family: "楷体", sans-serif;
+			}
 			.button{
+				width: 100%;
 				-webkit-appearance: none;
 				appearance: none;
 				outline: 0;
@@ -61,7 +75,7 @@
 				background-color: #aaaaff;
 				box-shadow: 5px 5px 5px #55ff7f;
 			}
-			#host:hover{
+			.inputs:hover{
 				border: 2px solid rgba(193, 193, 193, 102);
 			}
 			.msgCon{
@@ -77,11 +91,32 @@
 		</div>
 		<br />
 		<div id="Box">
-			<input type="text" id="host" placeholder="Host Name"/>
+			<div id="inputBox">
+				<div class="line">
+					<p class="label">云服务器</p>&nbsp;&nbsp;
+					<input type="text" class="inputs host" placeholder="Host:Port"/>
+				</div>
+				<div class="line">
+					<p class="label">订阅主题</p>&nbsp;&nbsp;
+					<input type="text" class="inputs subTop" placeholder=""/>
+				</div>
+				<div class="line">
+					<p class="label">发布主题</p>&nbsp;&nbsp;
+					<input type="text" class="inputs sendTop" placeholder=""/>
+				</div>
+				<div class="line">
+					<p class="label">发布内容</p>&nbsp;&nbsp;
+					<input type="text" class="inputs sendMsg" placeholder=""/>
+				</div>
+			</div>
 			<hr />
 			<input type="button" value="连接" class="button" onclick="btnConnect()" />
 			<hr />
 			<input type="button" value="断开" class="button" onclick="btnEnd()" />
+			<hr />
+			<input type="button" value="订阅" class="button" onclick="btnSub()" />
+			<hr />
+			<input type="button" value="发送" class="button" onclick="btnSend()" />
 			<hr />
 			<input type="button" value="开门" class="button" onclick="btnOpen()" />
 			<hr />
@@ -103,7 +138,13 @@
 			topic_send = '/ESP32/CMD',
 			topic_sub = '/ESP32/CALLBACK',
 			s = "";
-	    
+		
+	    $(document).ready(function(){
+	    	$(".host").val("api.easylink.io:1983");
+			$(".subTop").val('/ESP32/CALLBACK');
+			$(".sendTop").val('/ESP32/CMD');
+	    });
+		
 		function onFailure() {
 			console.log(e);
 			s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onFailure()}";
@@ -111,7 +152,6 @@
 		}
 		//连接服务器并注册连接成功处理事件
 		function onConnect() {
-		    //console.log(">> 连接成功!");
 			innerHTMl(">> 连接成功!");
 		    s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onConnected()}";
 		    console.log(s);
@@ -123,36 +163,50 @@
 		    console.log(s);
 		    if (responseObject.errorCode !== 0) {
 		        console.log("onConnectionLost:" + responseObject.errorMessage);
-		        //console.log(">> 连接出错!");
 				innerHTMl(">> 连接出错!");
 		    }else{
-				//console.log(">> 结束连接!");
 				innerHTMl(">> 结束连接!");
 			}
 		}
-		
+
 		//消息接收处理
 		function onMessageArrived(message) {
 		    s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", onMessageArrived()}";
 		    console.log(s);
-		    //console.log(">> 收到消息:" + message.payloadString);
 			innerHTMl(">> 收到消息:" + message.payloadString);
 		}
 		
-		function btnConnect(){
-			var host = document.getElementById("host").value;
-			var realhost = hostname;
-			if(host){
-				realhost = host;
-				innerHTMl(">>使用自定义BROKER: "+realhost)
+		function getSubTopic(){
+			if($(".subTop").val()){
+				return $(".subTop").val();
 			}else{
-				innerHTMl(">>使用默认BROKER: "+realhost)
+				innerHTMl(">> 请输入订阅主题");
+				return null;
 			}
-			client = new Paho.MQTT.Client(realhost, port, clientId)
+		}
+		function btnConnect(){
+			if($(".host").val()){
+				var temp = $(".host").val().split(":");
+				hostname = temp[0];
+				port 	 = Number(temp[1]);
+				innerHTMl(">> 使用自定义BROKER: "+temp)
+			}else{
+				innerHTMl(">>使用默认BROKER: "+hostname)
+			}
+			if($(".subTop").val()){
+				topic_sub = $(".subTop").val();
+				innerHTMl(">> 自定义订阅主题: "+topic_sub)
+			}
+			if($(".sendTop").val()){
+				topic_send = $(".sendTop").val();
+				innerHTMl(">> 自定义发布主题: "+topic_sub)
+			}
+			
+			client = new Paho.MQTT.Client(hostname, port, clientId)
 			//建立客户端实例
 			var options = {
 				invocationContext: {
-					host: realhost,
+					host: hostname,
 					port: port,
 					path: client.path,
 					clientId: clientId
@@ -162,7 +216,7 @@
 				cleanSession: cleanSession,
 				useSSL: ssl,  
 				onSuccess: onConnect,
-				onFailure: onFailure
+				onFailure: onFailure,
 			};
 			//注册连接断开处理事件  
 			client.onConnectionLost = onConnectionLost;
@@ -183,11 +237,35 @@
 		function btnOpen() {
 			var s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", content:" + (s) + ", from: web console}";
 			console.log(s);
-			message = new Paho.MQTT.Message("OpenDoor");
+			message = new Paho.MQTT.Message("Open");
 			message.destinationName = topic_send;
 			client.send(message);
 		}
-
+		
+		function btnSub(){
+			if($(".subTop").val()){
+				client.subscribe($(".subTop").val());
+				innerHTMl(">> 已订阅!");
+			}else{
+				innerHTMl(">> 请先输入订阅主题!");
+			}
+		}
+		
+		function btnSend(){
+			if($(".sendMsg").val()){
+				if($(".sendTop").val()){
+					message = new Paho.MQTT.Message($(".sendMsg").val());
+					message.destinationName = $(".sendTop").val();
+					client.send(message);
+					innerHTMl(">> 已发送!");
+				}else{
+					innerHTMl(">> 请先输入订阅主题!");
+				}
+			}else{
+				innerHTMl(">> 请先输入发布内容!");
+			}
+		}
+		
 		Date.prototype.Format = function (fmt) {
 			var o = {
 				"M+": this.getMonth() + 1, //月份 
